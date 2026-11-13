@@ -1,0 +1,823 @@
+
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pomodoro - 專注時光</title>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Noto+Sans+TC:wght@400;500;600;700&display=swap');
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'DM Sans', 'Noto Sans TC', sans-serif;
+      background: #F7F5F0;
+      color: #39352F;
+      min-height: 100vh;
+    }
+
+    button {
+      transition: all .25s ease;
+    }
+
+    button:active {
+      transform: scale(.96);
+    }
+
+    .timer-ring {
+      transform: rotate(-90deg);
+    }
+
+    .progress-ring {
+      transition: stroke-dashoffset 1s linear;
+      stroke-linecap: round;
+    }
+
+    .tomato {
+      animation: breathe 3s ease-in-out infinite;
+      display: inline-block;
+    }
+
+    @keyframes breathe {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.12); }
+    }
+
+    .floating {
+      animation: float 4s ease-in-out infinite;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-8px); }
+    }
+
+    .fade-in {
+      animation: fadeIn .5s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .mode-btn.active {
+      background: #EAC2AD;
+      color: #654B3E;
+      box-shadow: 0 3px 10px #d8b9a455;
+    }
+
+    .primary-btn {
+      background: #D99578;
+      color: white;
+    }
+
+    .primary-btn:hover {
+      background: #C98264;
+      transform: translateY(-2px);
+    }
+
+    .soft-btn {
+      background: #EDE9E1;
+      color: #625A50;
+    }
+
+    .soft-btn:hover {
+      background: #E3DDD3;
+    }
+
+    .settings-input {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #E5DED3;
+      border-radius: 12px;
+      background: #FAF9F6;
+      outline: none;
+      color: #51483E;
+    }
+
+    .settings-input:focus {
+      border-color: #D99578;
+    }
+
+    .dot {
+      width: 7px;
+      height: 7px;
+      background: #D99578;
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    .confetti {
+      position: fixed;
+      top: -15px;
+      width: 9px;
+      height: 9px;
+      border-radius: 3px;
+      pointer-events: none;
+      z-index: 50;
+      animation: fall 2.5s ease-in forwards;
+    }
+
+    @keyframes fall {
+      to {
+        transform: translateY(105vh) rotate(720deg);
+        opacity: 0;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .timer-circle {
+        width: 270px;
+        height: 270px;
+      }
+    }
+  </style>
+</head>
+
+<body class="flex items-center justify-center p-4">
+
+  <main class="w-full max-w-md fade-in">
+
+    <!-- Header -->
+    <header class="flex justify-between items-center mb-8">
+      <div>
+        <h1 class="text-2xl font-extrabold tracking-tight">
+          pomodoro<span class="text-[#D99578]">.</span>
+        </h1>
+        <p class="text-xs text-[#A49A8F] tracking-widest mt-1">
+          YOUR LITTLE FOCUS SPACE
+        </p>
+      </div>
+
+      <button id="settingsBtn"
+        class="soft-btn w-11 h-11 rounded-full flex items-center justify-center text-xl"
+        aria-label="設定">
+        ⚙
+      </button>
+    </header>
+
+    <!-- Main Card -->
+    <section class="bg-white rounded-[32px] shadow-sm p-6 sm:p-8">
+
+      <div class="text-center mb-6">
+        <p class="text-sm text-[#A49A8F] mb-4">
+          今天也慢慢來，一次做好一件事。
+        </p>
+
+        <!-- Mode Selection -->
+        <div class="grid grid-cols-3 bg-[#F7F5F0] rounded-2xl p-1 gap-1">
+          <button class="mode-btn active rounded-xl py-3 text-sm font-semibold"
+            data-mode="focus">
+            專注
+          </button>
+
+          <button class="mode-btn rounded-xl py-3 text-sm font-semibold"
+            data-mode="short">
+            短休息
+          </button>
+
+          <button class="mode-btn rounded-xl py-3 text-sm font-semibold"
+            data-mode="long">
+            長休息
+          </button>
+        </div>
+      </div>
+
+      <!-- Timer -->
+      <div class="relative flex justify-center items-center my-8">
+
+        <svg class="timer-ring timer-circle w-[290px] h-[290px]"
+          viewBox="0 0 300 300">
+
+          <circle
+            cx="150" cy="150" r="132"
+            stroke="#F2EEE8"
+            stroke-width="9"
+            fill="none"
+          />
+
+          <circle
+            id="progress"
+            class="progress-ring"
+            cx="150" cy="150" r="132"
+            stroke="#D99578"
+            stroke-width="9"
+            fill="none"
+            stroke-dasharray="829.38"
+            stroke-dashoffset="0"
+          />
+        </svg>
+
+        <div class="absolute inset-0 flex flex-col items-center justify-center">
+
+          <div id="statusLabel"
+            class="text-xs tracking-[.25em] text-[#A49A8F] mb-3">
+            FOCUS TIME
+          </div>
+
+          <div id="timer"
+            class="text-6xl sm:text-7xl font-bold tracking-tight tabular-nums">
+            25:00
+          </div>
+
+          <div class="tomato text-4xl mt-4" id="tomato">
+            🍅
+          </div>
+
+          <div id="subLabel"
+            class="text-xs text-[#B1A89D] mt-3">
+            專注當下，慢慢完成。
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Controls -->
+      <div class="flex justify-center items-center gap-4 mt-8">
+
+        <button id="resetBtn"
+          class="soft-btn w-12 h-12 rounded-full text-lg"
+          aria-label="重置">
+          ↺
+        </button>
+
+        <button id="startBtn"
+          class="primary-btn rounded-full px-10 py-4 text-base font-bold shadow-md min-w-[175px]">
+          ▶ 開始專注
+        </button>
+
+        <button id="skipBtn"
+          class="soft-btn w-12 h-12 rounded-full text-lg"
+          aria-label="跳過">
+          ⇥
+        </button>
+
+      </div>
+
+      <!-- Statistics -->
+      <div class="grid grid-cols-2 gap-4 mt-10 pt-6 border-t border-[#F1EDE6]">
+
+        <div class="text-center">
+          <div class="text-2xl font-bold" id="sessionCount">0</div>
+          <div class="text-xs text-[#A49A8F] mt-1">
+            🍅 完成番茄鐘
+          </div>
+        </div>
+
+        <div class="text-center">
+          <div class="text-2xl font-bold" id="focusMinutes">0</div>
+          <div class="text-xs text-[#A49A8F] mt-1">
+            ◷ 累積專注分鐘
+          </div>
+        </div>
+
+      </div>
+
+    </section>
+
+    <!-- Footer -->
+    <footer class="text-center mt-7">
+      <div class="flex justify-center gap-2 mb-2">
+        <span class="dot"></span>
+        <span class="dot opacity-50"></span>
+        <span class="dot opacity-25"></span>
+      </div>
+
+      <p class="text-xs text-[#AAA297]">
+        Small steps every day.
+      </p>
+      <p class="text-[10px] text-[#C0B9AE] mt-2">
+        TAKE YOUR TIME · ENJOY YOUR DAY
+      </p>
+    </footer>
+
+  </main>
+
+  <!-- Settings Modal -->
+  <div id="settingsModal"
+    class="hidden fixed inset-0 bg-[#39352F]/30 backdrop-blur-sm z-40 flex items-center justify-center p-4">
+
+    <div class="bg-white rounded-3xl p-7 w-full max-w-sm shadow-xl fade-in">
+
+      <div class="flex justify-between items-center mb-6">
+        <h2 class="font-bold text-xl">時間設定</h2>
+        <button id="closeSettings"
+          class="text-2xl text-[#A49A8F]">×</button>
+      </div>
+
+      <div class="space-y-4">
+
+        <label class="block">
+          <span class="text-sm font-medium">專注時間（分鐘）</span>
+          <input id="focusInput" type="number"
+            min="1" max="180" value="25"
+            class="settings-input mt-2">
+        </label>
+
+        <label class="block">
+          <span class="text-sm font-medium">短休息（分鐘）</span>
+          <input id="shortInput" type="number"
+            min="1" max="60" value="5"
+            class="settings-input mt-2">
+        </label>
+
+        <label class="block">
+          <span class="text-sm font-medium">長休息（分鐘）</span>
+          <input id="longInput" type="number"
+            min="1" max="120" value="15"
+            class="settings-input mt-2">
+        </label>
+
+        <label class="flex items-center justify-between py-2">
+          <span class="text-sm font-medium">完成音效</span>
+          <input id="soundInput" type="checkbox" checked
+            class="w-5 h-5 accent-[#D99578]">
+        </label>
+
+      </div>
+
+      <button id="saveSettings"
+        class="primary-btn w-full rounded-xl py-3 font-bold mt-5">
+        儲存設定
+      </button>
+
+    </div>
+  </div>
+
+  <!-- Notification -->
+  <div id="toast"
+    class="fixed bottom-8 left-1/2 -translate-x-1/2 bg-[#51483E] text-white px-6 py-3 rounded-full text-sm shadow-lg opacity-0 pointer-events-none transition-opacity duration-300 z-50 whitespace-nowrap">
+    時間完成！
+  </div>
+
+  <script>
+    // ==========================
+    // Pomodoro Timer
+    // ==========================
+
+    const CIRCUMFERENCE = 2 * Math.PI * 132;
+
+    const defaultTimes = {
+      focus: 25,
+      short: 5,
+      long: 15
+    };
+
+    let times = { ...defaultTimes };
+
+    let currentMode = 'focus';
+    let totalSeconds = 25 * 60;
+    let remainingSeconds = totalSeconds;
+
+    let isRunning = false;
+    let endTime = null;
+    let timerInterval = null;
+
+    let sessions = 0;
+    let totalFocusMinutes = 0;
+    let soundEnabled = true;
+
+    const timer = document.getElementById('timer');
+    const progress = document.getElementById('progress');
+    const startBtn = document.getElementById('startBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const skipBtn = document.getElementById('skipBtn');
+
+    const sessionCount = document.getElementById('sessionCount');
+    const focusMinutes = document.getElementById('focusMinutes');
+
+    const statusLabel = document.getElementById('statusLabel');
+    const subLabel = document.getElementById('subLabel');
+
+    const settingsModal = document.getElementById('settingsModal');
+
+    progress.style.strokeDasharray = CIRCUMFERENCE;
+
+    // ==========================
+    // Display
+    // ==========================
+
+    function formatTime(seconds) {
+      const minutes = Math.floor(seconds / 60);
+      const secs = seconds % 60;
+
+      return (
+        String(minutes).padStart(2, '0') +
+        ':' +
+        String(secs).padStart(2, '0')
+      );
+    }
+
+    function updateDisplay() {
+      timer.textContent = formatTime(remainingSeconds);
+
+      const percentage = remainingSeconds / totalSeconds;
+
+      const offset = CIRCUMFERENCE * (1 - percentage);
+
+      progress.style.strokeDashoffset = offset;
+
+      document.title =
+        formatTime(remainingSeconds) + ' | Pomodoro';
+
+      sessionCount.textContent = sessions;
+      focusMinutes.textContent = totalFocusMinutes;
+
+      startBtn.textContent = isRunning
+        ? 'Ⅱ 暫停'
+        : remainingSeconds === totalSeconds
+          ? '▶ 開始專注'
+          : '▶ 繼續';
+    }
+
+    // ==========================
+    // Modes
+    // ==========================
+
+    function setMode(mode) {
+      pauseTimer();
+
+      currentMode = mode;
+      totalSeconds = times[mode] * 60;
+      remainingSeconds = totalSeconds;
+
+      document.querySelectorAll('.mode-btn').forEach(btn => {
+        btn.classList.toggle(
+          'active',
+          btn.dataset.mode === mode
+        );
+      });
+
+      const modeSettings = {
+        focus: {
+          title: 'FOCUS TIME',
+          subtitle: '專注當下，慢慢完成。',
+          color: '#D99578',
+          tomato: '🍅'
+        },
+
+        short: {
+          title: 'SHORT BREAK',
+          subtitle: '讓自己休息一下。',
+          color: '#9DB9A5',
+          tomato: '🌱'
+        },
+
+        long: {
+          title: 'LONG BREAK',
+          subtitle: '好好享受這段時間。',
+          color: '#9DAFC6',
+          tomato: '☁️'
+        }
+      };
+
+      const config = modeSettings[mode];
+
+      statusLabel.textContent = config.title;
+      subLabel.textContent = config.subtitle;
+
+      progress.style.stroke = config.color;
+      document.getElementById('tomato').textContent =
+        config.tomato;
+
+      updateDisplay();
+    }
+
+    document.querySelectorAll('.mode-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        setMode(btn.dataset.mode);
+      });
+    });
+
+    // ==========================
+    // Timer Functions
+    // ==========================
+
+    function startTimer() {
+      if (isRunning) {
+        pauseTimer();
+        return;
+      }
+
+      if (remainingSeconds <= 0) return;
+
+      isRunning = true;
+
+      endTime = Date.now() + remainingSeconds * 1000;
+
+      updateDisplay();
+
+      timerInterval = setInterval(() => {
+        const millisecondsLeft = endTime - Date.now();
+
+        remainingSeconds = Math.max(
+          0,
+          Math.ceil(millisecondsLeft / 1000)
+        );
+
+        updateDisplay();
+
+        if (remainingSeconds <= 0) {
+          completeTimer();
+        }
+
+      }, 200);
+    }
+
+    function pauseTimer() {
+      if (timerInterval) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+      }
+
+      if (isRunning && endTime) {
+        remainingSeconds = Math.max(
+          0,
+          Math.ceil((endTime - Date.now()) / 1000)
+        );
+      }
+
+      isRunning = false;
+      endTime = null;
+
+      updateDisplay();
+    }
+
+    function resetTimer() {
+      pauseTimer();
+
+      remainingSeconds = totalSeconds;
+
+      updateDisplay();
+    }
+
+    function skipTimer() {
+      pauseTimer();
+
+      if (currentMode === 'focus') {
+        setMode('short');
+      } else {
+        setMode('focus');
+      }
+    }
+
+    // ==========================
+    // Completion
+    // ==========================
+
+    function completeTimer() {
+      pauseTimer();
+
+      remainingSeconds = 0;
+      updateDisplay();
+
+      if (currentMode === 'focus') {
+        sessions++;
+        totalFocusMinutes += times.focus;
+
+        sessionCount.textContent = sessions;
+        focusMinutes.textContent = totalFocusMinutes;
+
+        showToast('太棒了！完成一次專注 🍅');
+
+        launchConfetti();
+
+        playSound();
+
+        setTimeout(() => {
+          setMode(sessions % 4 === 0 ? 'long' : 'short');
+        }, 1200);
+
+      } else {
+        showToast('休息結束，準備好了嗎？✨');
+
+        playSound();
+
+        setTimeout(() => {
+          setMode('focus');
+        }, 1200);
+      }
+    }
+
+    // ==========================
+    // Sound Effect
+    // ==========================
+
+    function playSound() {
+      if (!soundEnabled) return;
+
+      try {
+        const AudioContextClass =
+          window.AudioContext || window.webkitAudioContext;
+
+        if (!AudioContextClass) return;
+
+        const audio = new AudioContextClass();
+
+        [523.25, 659.25, 783.99].forEach((frequency, index) => {
+          const oscillator = audio.createOscillator();
+          const gain = audio.createGain();
+
+          oscillator.type = 'sine';
+          oscillator.frequency.value = frequency;
+
+          gain.gain.setValueAtTime(
+            0.0001,
+            audio.currentTime + index * 0.18
+          );
+
+          gain.gain.exponentialRampToValueAtTime(
+            0.15,
+            audio.currentTime + index * 0.18 + 0.04
+          );
+
+          gain.gain.exponentialRampToValueAtTime(
+            0.0001,
+            audio.currentTime + index * 0.18 + 0.35
+          );
+
+          oscillator.connect(gain);
+          gain.connect(audio.destination);
+
+          oscillator.start(audio.currentTime + index * 0.18);
+          oscillator.stop(audio.currentTime + index * 0.18 + 0.4);
+        });
+
+        setTimeout(() => audio.close(), 1500);
+
+      } catch (error) {
+        console.warn('音效播放失敗：', error);
+      }
+    }
+
+    // ==========================
+    // Confetti Animation
+    // ==========================
+
+    function launchConfetti() {
+      const colors = [
+        '#D99578',
+        '#EBC7AD',
+        '#9DB9A5',
+        '#E8D9BD',
+        '#A9BBD0'
+      ];
+
+      for (let i = 0; i < 45; i++) {
+        const piece = document.createElement('div');
+
+        piece.className = 'confetti';
+
+        piece.style.left = Math.random() * 100 + 'vw';
+        piece.style.background =
+          colors[Math.floor(Math.random() * colors.length)];
+
+        piece.style.animationDelay =
+          Math.random() * 0.7 + 's';
+
+        piece.style.animationDuration =
+          (1.8 + Math.random() * 1.5) + 's';
+
+        document.body.appendChild(piece);
+
+        setTimeout(() => piece.remove(), 4500);
+      }
+    }
+
+    // ==========================
+    // Toast Message
+    // ==========================
+
+    let toastTimeout;
+
+    function showToast(message) {
+      const toast = document.getElementById('toast');
+
+      toast.textContent = message;
+      toast.classList.remove('opacity-0');
+
+      clearTimeout(toastTimeout);
+
+      toastTimeout = setTimeout(() => {
+        toast.classList.add('opacity-0');
+      }, 2500);
+    }
+
+    // ==========================
+    // Settings
+    // ==========================
+
+    document.getElementById('settingsBtn')
+      .addEventListener('click', () => {
+        document.getElementById('focusInput').value =
+          times.focus;
+
+        document.getElementById('shortInput').value =
+          times.short;
+
+        document.getElementById('longInput').value =
+          times.long;
+
+        document.getElementById('soundInput').checked =
+          soundEnabled;
+
+        settingsModal.classList.remove('hidden');
+      });
+
+    document.getElementById('closeSettings')
+      .addEventListener('click', () => {
+        settingsModal.classList.add('hidden');
+      });
+
+    settingsModal.addEventListener('click', event => {
+      if (event.target === settingsModal) {
+        settingsModal.classList.add('hidden');
+      }
+    });
+
+    document.getElementById('saveSettings')
+      .addEventListener('click', () => {
+
+        const newTimes = {
+          focus: Number(
+            document.getElementById('focusInput').value
+          ),
+
+          short: Number(
+            document.getElementById('shortInput').value
+          ),
+
+          long: Number(
+            document.getElementById('longInput').value
+          )
+        };
+
+        const valid = Object.values(newTimes).every(
+          value =>
+            Number.isInteger(value) &&
+            value >= 1 &&
+            value <= 180
+        );
+
+        if (!valid) {
+          showToast('請輸入有效的時間（1～180 分鐘）');
+          return;
+        }
+
+        times = newTimes;
+
+        soundEnabled =
+          document.getElementById('soundInput').checked;
+
+        settingsModal.classList.add('hidden');
+
+        setMode(currentMode);
+
+        showToast('設定已儲存 ✨');
+      });
+
+    // ==========================
+    // Button Events
+    // ==========================
+
+    startBtn.addEventListener('click', startTimer);
+
+    resetBtn.addEventListener('click', resetTimer);
+
+    skipBtn.addEventListener('click', skipTimer);
+
+    // 當使用者切換回頁面時，校正計時器
+    document.addEventListener('visibilitychange', () => {
+      if (isRunning && !document.hidden) {
+        remainingSeconds = Math.max(
+          0,
+          Math.ceil((endTime - Date.now()) / 1000)
+        );
+
+        updateDisplay();
+
+        if (remainingSeconds <= 0) {
+          completeTimer();
+        }
+      }
+    });
+
+    // ==========================
+    // Initialize
+    // ==========================
+
+    setMode('focus');
+    updateDisplay();
+
+  </script>
+
+</body>
+</html>
